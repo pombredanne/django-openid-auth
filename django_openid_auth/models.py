@@ -27,6 +27,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -56,3 +57,16 @@ class UserOpenID(models.Model):
     user = models.ForeignKey(User)
     claimed_id = models.TextField(max_length=2047)
     display_id = models.TextField(max_length=2047)
+
+    def clean_fields(self):
+        """
+        Validate uniqueness of claimed_id here because MySQL
+        doesn't like using unique on TextFields without specifying
+        a key length, which Django doesn't allow you to do. This can
+        be removed if bug # 524796 [1] get's fixed.
+
+        [1] https://bugs.launchpad.net/django-openid-auth/+bug/524796
+        """
+        claims = self.objects.filter(claimed_id=self.claimed_id)
+        if claims:
+            raise ValidationError('Claimed ID must be unique')
